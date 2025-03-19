@@ -1,0 +1,96 @@
+[
+  {
+    "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "question": "rere",
+    "options": [
+      "1",
+      "2",
+      "3"
+    ],
+    "correctAnswer": "3",
+    "explanation": "фыввв",
+    "image": "AgACAgIAAxkBAAN-Z9q4bssPOLrFMCWC9qg50TDmHyYAAoTuMRtY1tlKzpsQ4Bx4wrMBAAMCAAN4AAM2BA",
+    "chatId": 1902147359
+  },
+  {
+    "id": "70af66b9-773d-4675-9eb0-31bc4f67dd0b",
+    "question": "Что такое комп",
+    "options": [
+      "фигня"
+    ],
+    "correctAnswer": "фигня",
+    "explanation": "турупун",
+    "image": "AgACAgIAAxkBAAICYmfa3bD9C-aOS8b8XRCRh7sJExgPAAKG7zEbWNbZSmcP0q0e3dQCAQADAgADeAADNgQ",
+    "chatId": 1902147359
+  },
+  {
+    "id": "3c7b9598-5888-4307-84ff-743bc7896088",
+    "question": "Как называется еврейский Новый год?",
+    "options": [
+      "Ханука",
+      "Йом Кипур",
+      "Кванза",
+      "Рош ха-Шана"
+    ],
+    "correctAnswer": "Рош ха-Шана",
+    "explanation": "Рош ха-Шана (в перводе с иврита «Голова года») – праздник Новолетия, еврейский Новый год, который отмечается 1-го и 2-го числа месяца тишрей",
+    "image": "AgACAgIAAxkBAAICfWfa3kSSTmGXrHk0BCdLbaEZLlrmAAKJ7zEbWNbZSpBtWXABUHDLAQADAgADeQADNgQ",
+    "chatId": 1902147359
+  },
+  {
+    "id": "fdfc1e78-312c-4fad-864a-98955c3cfe9b",
+    "question": "На каком инструменте Джон Леннон играл в \"Битлз\"?",
+    "options": [
+      "Клавиши",
+      "Барабаны",
+      "Басс",
+      "Гитара"
+    ],
+    "correctAnswer": "Гитара",
+    "explanation": "Кроме фортепиано Леннон играл на Гитаре",
+    "image": "AgACAgIAAxkBAAICkWfa3tJ3SH866nL_X2dkemCXx3IGAAKP7zEbWNbZSmcN8_okfPOHAQADAgADeQADNgQ",
+    "chatId": 1902147359
+  },
+  {
+    "id": "cd408f01-36cc-4e4e-a90f-c778c2f833eb",
+    "question": "Как назывался особый головной убор, который носили фараоны в Древнем Египте?",
+    "options": [
+      "Картуз",
+      "Немес",
+      "Корона",
+      "Убрус"
+    ],
+    "correctAnswer": "Немес",
+    "explanation": "Неме́с, или клафт — царский головной убор в Древнем Египте, один из символов власти египетских фараонов.",
+    "image": "AgACAgIAAxkBAAICpmfa32aXFjJbdxhqHeHqqNDBcz67AAKR7zEbWNbZSiOw7dtX1OfpAQADAgADeAADNgQ",
+    "chatId": 1902147359
+  },
+  {
+    "id": "8e13beca-8d92-4550-b8fd-b72d781a2a5f",
+    "question": "У какого животного самые большие глаза относительно тела?",
+    "options": [
+      "У лемура",
+      "У летучей мыши",
+      "У долгопята",
+      "У тупайи"
+    ],
+    "correctAnswer": "У долгопята",
+    "explanation": "У филиппинских долгопятов самые крупные глаза по отношению к размерам тела среди всех млекопитающих.\nИменно долгопят стал прототипом магистра Йоды",
+    "image": "AgACAgIAAxkBAAICsmfa39iHFLz9OC_sOSs6z3s4sgyWAAKW7zEbWNbZSqLUc5zOcnOyAQADAgADeAADNgQ",
+    "chatId": 1902147359
+  },
+  {
+    "id": "129c4dd2-6084-461b-a00c-0e758456bd29",
+    "question": "Что в японском ресторане называется «осибори»?",
+    "options": [
+      "Палочки для еды",
+      "Тарелка для суши",
+      "Соевый соус",
+      "Влажное полотенце"
+    ],
+    "correctAnswer": "Влажное полотенце",
+    "explanation": "Осибори (яп. お絞り) — влажное полотенце, которое подаётся перед едой для вытирания лица и рук.",
+    "image": "AgACAgIAAxkBAAICzmfa4IdhfqFkopP3dlbS507G77QNAAKc7zEbWNbZSh_ttGLSCZiWAQADAgADeAADNgQ",
+    "chatId": 1902147359
+  }
+]
