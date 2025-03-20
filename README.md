@@ -41,4 +41,4 @@ node index.js
 ### 1. Клонирование репозитория
 
 ```bash
-git clone https://github.com/kolyamilk/telegram-quiz-bot.git
+git clone https://github.com/kolyamilk/telegram-bot-QuickQuizChannel.git
