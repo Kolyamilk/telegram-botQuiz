@@ -1,60 +1,48 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid'); // Импортируем функцию для генерации UUID
-
 // Замените 'YOUR_TELEGRAM_BOT_TOKEN' на ваш токен
 const token = '7446240384:AAGXLTi_v6Q3X26eSHcLPhNOTwUNVzBrvMo';
 // Создаем экземпляр бота
 const bot = new TelegramBot(token, { polling: true });
-
 // Файл для хранения вопросов
 const QUESTIONS_FILE = 'questions.json';
-
 // Массив для хранения вопросов
 let questions = [];
-
 // Загрузка вопросов из файла
 if (fs.existsSync(QUESTIONS_FILE)) {
     const data = fs.readFileSync(QUESTIONS_FILE, 'utf8');
     questions = JSON.parse(data);
 }
-
 // Сохранение вопросов в файл
 function saveQuestions() {
     fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(questions, null, 2), 'utf8');
 }
-
 // Функция для создания инлайн-клавиатуры
 function createInlineKeyboard(options, questionId) {
     const keyboard = [];
     for (let i = 0; i < options.length; i++) {
-        const option = options[i];
-        const callbackData = `answer_${questionId}_${i}`; // Добавляем ID вопроса в callback_data
-        keyboard.push([{ text: option, callback_data: callbackData }]);
+        // Создаем кнопку для каждой опции и помещаем её в отдельную строку
+        const callbackData = `answer_${questionId}_${i}`;
+        keyboard.push([{ text: options[i], callback_data: callbackData }]);
     }
     return { reply_markup: { inline_keyboard: keyboard } };
 }
-
 // Отправка вопроса в канал: сначала изображение, затем варианты ответов
 function sendMessageWithKeyboard(chatId, questionIndex) {
     const question = questions[questionIndex];
-    // Отправляем изображение с текстом вопроса
+    // Отправляем изображение с текстом вопроса и инлайн-клавиатурой
     bot.sendPhoto(chatId, question.image, {
-        caption: question.question
-    }).then(() => {
-        // Отправляем варианты ответов отдельным сообщением с инлайн-клавиатурой
-        bot.sendMessage(chatId, "Выберите вариант ответа:", createInlineKeyboard(question.options, question.id))
-            .then(() => {
-                console.log("Options sent successfully");
-            })
-            .catch((error) => {
-                console.error("Error sending options:", error);
-            });
-    }).catch((error) => {
-        console.error("Error sending photo:", error);
+        caption: question.question,
+        reply_markup: createInlineKeyboard(question.options, question.id).reply_markup // Добавляем клавиатуру
+    })
+    .then(() => {
+        console.log("Photo and options sent successfully");
+    })
+    .catch((error) => {
+        console.error("Error sending photo or options:", error);
     });
 }
-
 // Создаем постоянную клавиатуру для управления ботом
 const adminKeyboard = {
     reply_markup: {
@@ -67,7 +55,6 @@ const adminKeyboard = {
         one_time_keyboard: false // Клавиатура остается после использования
     }
 };
-
 // Обработка команды /start
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
@@ -77,14 +64,13 @@ bot.onText(/\/start/, async (msg) => {
         console.error("Error sending start message:", error);
     }
 });
-
 // Команда /add_question для добавления нового вопроса
 bot.onText(/\/add_question/, async (msg) => {
     const chatId = msg.chat.id;
 
     bot.sendMessage(chatId, "Введите новый вопрос:");
     bot.once('message', (questionMsg) => {
-        const question = questionMsg.text;
+        const question = questionMsg.text + '\n\nСтавь реакцию\n 👍- хороший вопрос\n👎- вопрос не понравился';
 
         bot.sendMessage(chatId, "Отправьте изображение для вопроса:");
         bot.once('photo', async (photoMsg) => {
@@ -98,9 +84,7 @@ bot.onText(/\/add_question/, async (msg) => {
                     bot.sendMessage(chatId, "Введите объяснение правильного ответа:");
                     bot.once('message', (explanationMsg) => {
                         const explanation = explanationMsg.text;
-
                         const uniqueId = uuidv4(); // Генерируем уникальный ID для вопроса
-
                         questions.push({
                             id: uniqueId, // Добавляем уникальный ID
                             question,
@@ -118,16 +102,14 @@ bot.onText(/\/add_question/, async (msg) => {
         });
     });
 });
-
 // Обработка текстовых сообщений от администратора
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
-
     if (text === "Добавить новый вопрос") {
         bot.sendMessage(chatId, "Введите новый вопрос:");
         bot.once('message', (questionMsg) => {
-            const question = questionMsg.text;
+            const question = questionMsg.text +'\n\nСтавь реакцию\n 👍- хороший вопрос\n👎- вопрос не понравился';
 
             bot.sendMessage(chatId, "Отправьте изображение для вопроса:");
             bot.once('photo', async (photoMsg) => {
@@ -141,9 +123,7 @@ bot.on('message', async (msg) => {
                         bot.sendMessage(chatId, "Введите объяснение правильного ответа:");
                         bot.once('message', (explanationMsg) => {
                             const explanation = explanationMsg.text;
-
                             const uniqueId = uuidv4(); // Генерируем уникальный ID для вопроса
-
                             questions.push({
                                 id: uniqueId, // Добавляем уникальный ID
                                 question,
@@ -172,7 +152,6 @@ bot.on('message', async (msg) => {
         bot.sendMessage(chatId, message + "\nВыберите номер вопроса для отправки:", adminKeyboard);
         bot.once('message', (indexMsg) => {
             const index = parseInt(indexMsg.text) - 1;
-
             if (index >= 0 && index < questions.length) {
                 const CHANNEL_ID = '-1002651603862'; // Замените на ID вашего канала
                 sendMessageWithKeyboard(CHANNEL_ID, index);
@@ -193,21 +172,17 @@ bot.on('message', async (msg) => {
         bot.sendMessage(chatId, message, adminKeyboard);
     }
 });
-
 // Обработка нажатий на кнопки
 bot.on('callback_query', async (callbackQuery) => {
     const data = callbackQuery.data;
     const userId = callbackQuery.from.id;
-
     if (data.startsWith('answer_')) {
         const [_, questionId, userAnswerIndex] = data.split('_'); // Разбираем callback_data
         const currentQuestion = questions.find(q => q.id === questionId); // Находим вопрос по ID
-
         if (!currentQuestion) {
             console.error("No question found for ID:", questionId);
             return;
         }
-
         const userAnswer = currentQuestion.options[parseInt(userAnswerIndex)];
         try {
             if (userAnswer === currentQuestion.correctAnswer) {
@@ -220,7 +195,7 @@ bot.on('callback_query', async (callbackQuery) => {
             } else {
                 await bot.answerCallbackQuery({
                     callback_query_id: callbackQuery.id,
-                    text: `❌ Неправильно. Правильный ответ: ${currentQuestion.correctAnswer}. ` + currentQuestion.explanation,
+                    text: `❌ Неправильно. Попробуй ещё`,
                     show_alert: true
                 });
                 await bot.sendMessage(userId, `Неверно. Правильный ответ: ${currentQuestion.correctAnswer}. ${currentQuestion.explanation}`);
