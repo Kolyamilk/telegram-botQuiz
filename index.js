@@ -222,7 +222,7 @@ bot.on('callback_query', async (callbackQuery) => {
 });
 
 // Настройка Webhook
-const WEBHOOK_URL = 'https://telegram-bot-quickquizchannel.onrender.com/'; // Замените на ваш Render URL
+const WEBHOOK_URL = 'https://telegram-bot-QuickQuizChannel.onrender.com/'; // Замените на ваш Render URL
 bot.setWebhook(WEBHOOK_URL);
 
 // Обработка входящих запросов от Telegram
