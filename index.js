@@ -1,6 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { v4: uuidv4 } = require('uuid'); // Импортируем функцию для генерации UUID
-
+require('dotenv').config();
 // Замените 'YOUR_TELEGRAM_BOT_TOKEN' на ваш токен
 const token = '7446240384:AAGXLTi_v6Q3X26eSHcLPhNOTwUNVzBrvMo';
 
@@ -133,46 +133,7 @@ async function addNewQuestion(chatId) {
         });
     });
 }
-// Обработка нажатий на кнопки
-bot.on('callback_query', async (callbackQuery) => {
-    const data = callbackQuery.data;
-    const userId = callbackQuery.from.id;
 
-    if (data.startsWith('answer_')) {
-        const [_, questionId, userAnswerIndex] = data.split('_'); // Разбираем callback_data
-        try {
-            const questionRef = db.collection('questions').doc(questionId); // Получаем ссылку на вопрос
-            const questionDoc = await questionRef.get();
-            if (!questionDoc.exists) {
-                console.error("Вопрос не найден в базе данных.");
-                return;
-            }
-
-            const currentQuestion = questionDoc.data();
-            const userAnswer = currentQuestion.options[parseInt(userAnswerIndex)];
-
-            if (userAnswer === currentQuestion.correctAnswer) {
-                await bot.answerCallbackQuery({
-                    callback_query_id: callbackQuery.id,
-                    text: `✅ Правильно! ${currentQuestion.explanation}`,
-                    show_alert: true
-                });
-                await bot.sendMessage(userId, `${currentQuestion.explanation}`);
-            } else {
-                await bot.answerCallbackQuery({
-                    callback_query_id: callbackQuery.id,
-                    text: `❌ Неправильно. Попробуй ещё`,
-                    show_alert: true
-                });
-                await bot.sendMessage(userId, `Неверно. Правильный ответ: ${currentQuestion.correctAnswer}. ${currentQuestion.explanation}`);
-            }
-        } catch (error) {
-            console.error("Ошибка при обработке callback query:", error);
-        }
-    } else {
-        console.error("Неизвестные данные callback:", data);
-    }
-});
 // Функция для отправки вопроса в канал
 async function sendQuestionToChannel(chatId) {
     try {

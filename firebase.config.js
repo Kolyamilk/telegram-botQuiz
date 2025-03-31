@@ -1,7 +1,6 @@
+require('dotenv').config();
 const admin = require('firebase-admin');
-
-// Импортируем файл с ключом сервисного аккаунта
-const serviceAccount = require('./config/db-telegrambot-firebase-adminsdk-fbsvc-ba9c5ee21c.json');
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 
 // Инициализируем Firebase Admin SDK
 admin.initializeApp({
