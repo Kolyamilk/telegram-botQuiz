@@ -51,12 +51,12 @@ async function sendMessageWithKeyboard(chatId, questionId) {
             caption: question.question,
             reply_markup: createInlineKeyboard(question.options, question.id).reply_markup // Добавляем клавиатуру
         })
-        .then(() => {
-            console.log("Фото и варианты ответов успешно отправлены.");
-        })
-        .catch((error) => {
-            console.error("Ошибка при отправке фото или вариантов ответов:", error);
-        });
+            .then(() => {
+                console.log("Фото и варианты ответов успешно отправлены.");
+            })
+            .catch((error) => {
+                console.error("Ошибка при отправке фото или вариантов ответов:", error);
+            });
     } catch (error) {
         console.error("Ошибка в sendMessageWithKeyboard:", error);
     }
@@ -71,12 +71,57 @@ bot.onText(/\/start/, async (msg) => {
         console.error("Ошибка при отправке стартового сообщения:", error);
     }
 });
+bot.on('callback_query', async (callbackQuery) => {
+    const userId = callbackQuery.from.id;
+    console.log('Твой ID' +userId);
 
+    const data = callbackQuery.data;
+    console.log("Received callback data:", data); // Логируем полученные данные
+
+    if (data.startsWith('answer_')) {
+        const [_, questionId, userAnswerIndex] = data.split('_');
+        console.log("Question ID:", questionId); // Логируем ID вопроса
+        console.log("User answer index:", userAnswerIndex); // Логируем индекс ответа
+
+        try {
+            const questionRef = db.collection('questions').doc(questionId);
+            const questionDoc = await questionRef.get();
+            if (!questionDoc.exists) {
+                console.error("Вопрос не найден в базе данных.");
+                return;
+            }
+            const currentQuestion = questionDoc.data();
+            console.log("Current question data:", currentQuestion); // Логируем данные вопроса
+
+            const userAnswer = currentQuestion.options[parseInt(userAnswerIndex)];
+            console.log("User answer:", userAnswer); // Логируем ответ пользователя
+
+            if (userAnswer === currentQuestion.correctAnswer) {
+                await bot.answerCallbackQuery({
+                    callback_query_id: callbackQuery.id,
+                    text: `✅ Правильно! ${currentQuestion.explanation}`,
+                    show_alert: true
+                });
+                await bot.sendMessage(userId, `${currentQuestion.explanation}`);
+            } else {
+                await bot.answerCallbackQuery({
+                    callback_query_id: callbackQuery.id,
+                    text: `❌ Неправильно. Попробуй ещё`,
+                    show_alert: true
+                });
+                await bot.sendMessage(userId, `Неверно. Правильный ответ: ${currentQuestion.correctAnswer}. ${currentQuestion.explanation}`);
+            }
+        } catch (error) {
+            console.error("Ошибка при обработке callback query:", error);
+        }
+    } else {
+        console.error("Неизвестные данные callback:", data);
+    }
+});
 // Обработка текстовых сообщений от администратора
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
-
     if (text === "Добавить новый вопрос") {
         addNewQuestion(chatId);
     } else if (text === "Отправить вопрос в канал") {
@@ -187,6 +232,7 @@ async function showAllQuestions(chatId) {
     } catch (error) {
         console.error("Ошибка при получении вопросов из Firestore:", error);
         bot.sendMessage(chatId, "Произошла ошибка при загрузке вопросов.");
+
     }
 }
 
