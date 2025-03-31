@@ -73,7 +73,7 @@ bot.onText(/\/start/, async (msg) => {
 });
 bot.on('callback_query', async (callbackQuery) => {
     const userId = callbackQuery.from.id;
-    console.log('Твой ID' +userId);
+    console.log('Твой ID: ' +userId);
 
     const data = callbackQuery.data;
     console.log("Received callback data:", data); // Логируем полученные данные
