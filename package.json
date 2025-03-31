@@ -13,6 +13,7 @@
   "dependencies": {
     "express": "^4.21.2",
     "firebase-admin": "^13.2.0",
+    "git-filter-repo": "^0.0.30",
     "node-telegram-bot-api": "^0.66.0",
     "nodemon": "^3.1.9",
     "uuid": "^11.1.0"
