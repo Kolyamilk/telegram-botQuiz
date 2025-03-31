@@ -1,3 +1,4 @@
 # Игнорировать файлы с секретами
 .env
 node_modules/
+config/*.json
