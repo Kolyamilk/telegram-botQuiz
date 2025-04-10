@@ -3,7 +3,7 @@
 ![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue) ![Node.js](https://img.shields.io/badge/Node.js-18-green)
 
 Этот Telegram-бот позволяет создавать викторины с вопросами, вариантами ответов, изображениями и объяснениями правильных ответов. Бот может быть использован для образовательных целей, развлечений или тестирования знаний в группах и каналах Telegram.
-
+DB : https://console.firebase.google.com/project/db-telegrambot/firestore/databases/-default-/data/~2Fquestions~2F0c289587-8527-4eaf-ad11-0b2ce01dc692
 ---
 
 ## Основные функции
@@ -42,3 +42,4 @@ node index.js
 
 ```bash
 git clone https://github.com/kolyamilk/telegram-bot-QuickQuizChannel.git
+

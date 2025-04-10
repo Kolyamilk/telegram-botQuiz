@@ -1,4 +1,4 @@
-require('dotenv').config();
+
 const admin = require('firebase-admin');
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 
@@ -10,4 +10,4 @@ admin.initializeApp({
 // Экспортируем экземпляр Firestore
 const db = admin.firestore();
 
-module.exports = db;
+module.exports = db; 

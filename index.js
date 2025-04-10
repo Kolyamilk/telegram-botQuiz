@@ -1,14 +1,13 @@
-const TelegramBot = require('node-telegram-bot-api');
-const { v4: uuidv4 } = require('uuid'); // Импортируем функцию для генерации UUID
 require('dotenv').config();
+const TelegramBot = require('node-telegram-bot-api');
+
+const dbManager = require('./dbManager'); // Импортируем функции для работы с базой данных
+
 // Замените 'YOUR_TELEGRAM_BOT_TOKEN' на ваш токен
-const token = '7446240384:AAGXLTi_v6Q3X26eSHcLPhNOTwUNVzBrvMo';
+const token = process.env.TELEGRAM_BOT_TOKEN || '7446240384:AAGXLTi_v6Q3X26eSHcLPhNOTwUNVzBrvMo';
 
 // Создаем экземпляр бота
 const bot = new TelegramBot(token, { polling: true });
-
-// Подключаем Firestore
-const db = require('./firebase.config'); // Подключаем Firestore
 
 // Создаем постоянную клавиатуру для управления ботом
 const adminKeyboard = {
@@ -21,7 +20,7 @@ const adminKeyboard = {
             ["Удалить вопрос"]
         ],
         resize_keyboard: true, // Автоматически изменять размер клавиатуры
-        one_time_keyboard: false // Клавиатура остается после использования
+        one_time_keyboard: true // Клавиатура остается после использования
     }
 };
 
@@ -35,33 +34,58 @@ function createInlineKeyboard(options, questionId) {
     return { reply_markup: { inline_keyboard: keyboard } };
 }
 
-// Отправка вопроса в канал: сначала изображение, затем варианты ответов
-async function sendMessageWithKeyboard(chatId, questionId) {
+// Обновление сообщения с вопросом после ответа
+async function updateQuestionMessage(chatId, messageId, questionId) {
     try {
-        const questionRef = db.collection('questions').doc(questionId); // Получаем ссылку на вопрос
-        const questionDoc = await questionRef.get();
-        if (!questionDoc.exists) {
+        const questions = await dbManager.getAllQuestions();
+        const question = questions.find(q => q.id === questionId);
+        if (!question) {
             console.error("Вопрос не найден в базе данных.");
             return;
         }
 
-        const question = questionDoc.data();
+        const totalAnswers = (question.correctAnswersCount || 0) + (question.wrongAnswersCount || 0);
+        const correctPercentage = totalAnswers > 0 ? Math.round((question.correctAnswersCount / totalAnswers) * 100) : 0;
+
+        const messageText = `${question.question}
+📊 Статистика:
+Правильных ответов: ${question.correctAnswersCount || 0} (${correctPercentage}%)`;
+
+        // Редактируем сообщение
+        await bot.editMessageCaption(messageText, {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: createInlineKeyboard(question.options, question.id).reply_markup
+        });
+    } catch (error) {
+        console.error("Ошибка при обновлении текста вопроса:", error);
+    }
+}
+
+// Отправка вопроса в канал
+async function sendMessageWithKeyboard(chatId, questionId) {
+    try {
+        const questions = await dbManager.getAllQuestions();
+        const question = questions.find(q => q.id === questionId);
+        if (!question) {
+            console.error("Вопрос не найден в базе данных.");
+            return;
+        }
+
+        const totalAnswers = (question.correctAnswersCount || 0) + (question.wrongAnswersCount || 0);
+        const correctPercentage = totalAnswers > 0 ? Math.round((question.correctAnswersCount / totalAnswers) * 100) : 0;
+
         // Отправляем изображение с текстом вопроса и инлайн-клавиатурой
-        bot.sendPhoto(chatId, question.image, {
+        const sentMessage = await bot.sendPhoto(chatId, question.image, {
             caption: question.question,
-            reply_markup: createInlineKeyboard(question.options, question.id).reply_markup // Добавляем клавиатуру
-        })
-            .then(() => {
-                console.log("Фото и варианты ответов успешно отправлены.");
-            })
-            .catch((error) => {
-                console.error("Ошибка при отправке фото или вариантов ответов:", error);
-            });
+            reply_markup: createInlineKeyboard(question.options, question.id).reply_markup
+        });
+
+        console.log("Фото и варианты ответов успешно отправлены.");
     } catch (error) {
         console.error("Ошибка в sendMessageWithKeyboard:", error);
     }
 }
-
 // Обработка команды /start
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
@@ -71,46 +95,44 @@ bot.onText(/\/start/, async (msg) => {
         console.error("Ошибка при отправке стартового сообщения:", error);
     }
 });
+// Обработка callback-запросов
 bot.on('callback_query', async (callbackQuery) => {
-    const userId = callbackQuery.from.id;
-    console.log('Твой ID: ' +userId);
-
     const data = callbackQuery.data;
-    console.log("Received callback data:", data); // Логируем полученные данные
-
     if (data.startsWith('answer_')) {
         const [_, questionId, userAnswerIndex] = data.split('_');
-        console.log("Question ID:", questionId); // Логируем ID вопроса
-        console.log("User answer index:", userAnswerIndex); // Логируем индекс ответа
-
         try {
-            const questionRef = db.collection('questions').doc(questionId);
-            const questionDoc = await questionRef.get();
-            if (!questionDoc.exists) {
+            const questions = await dbManager.getAllQuestions();
+            const currentQuestion = questions.find(q => q.id === questionId);
+            if (!currentQuestion) {
                 console.error("Вопрос не найден в базе данных.");
                 return;
             }
-            const currentQuestion = questionDoc.data();
-            console.log("Current question data:", currentQuestion); // Логируем данные вопроса
 
             const userAnswer = currentQuestion.options[parseInt(userAnswerIndex)];
-            console.log("User answer:", userAnswer); // Логируем ответ пользователя
+            const isCorrect = userAnswer === currentQuestion.correctAnswer;
 
-            if (userAnswer === currentQuestion.correctAnswer) {
+            if (isCorrect) {
+                await dbManager.incrementAnswerCount(questionId, true); // Увеличиваем счетчик правильных ответов
                 await bot.answerCallbackQuery({
                     callback_query_id: callbackQuery.id,
                     text: `✅ Правильно! ${currentQuestion.explanation}`,
                     show_alert: true
                 });
-                await bot.sendMessage(userId, `${currentQuestion.explanation}`);
             } else {
+                await dbManager.incrementAnswerCount(questionId, false); // Увеличиваем счетчик неправильных ответов
                 await bot.answerCallbackQuery({
                     callback_query_id: callbackQuery.id,
                     text: `❌ Неправильно. Попробуй ещё`,
                     show_alert: true
                 });
-                await bot.sendMessage(userId, `Неверно. Правильный ответ: ${currentQuestion.correctAnswer}. ${currentQuestion.explanation}`);
             }
+
+            // Обновляем текст вопроса с новой статистикой
+            await updateQuestionMessage(
+                callbackQuery.message.chat.id,
+                callbackQuery.message.message_id,
+                questionId
+            );
         } catch (error) {
             console.error("Ошибка при обработке callback query:", error);
         }
@@ -122,6 +144,7 @@ bot.on('callback_query', async (callbackQuery) => {
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
+
     if (text === "Добавить новый вопрос") {
         addNewQuestion(chatId);
     } else if (text === "Отправить вопрос в канал") {
@@ -134,42 +157,34 @@ bot.on('message', async (msg) => {
         deleteQuestion(chatId);
     }
 });
-
-// Функция для добавления нового вопроса
+// Добавление нового вопроса
 async function addNewQuestion(chatId) {
     bot.sendMessage(chatId, "Введите новый вопрос:");
-    bot.once('message', (questionMsg) => {
-        const question = questionMsg.text + '\n\nСтавь реакцию\n👍 - хороший вопрос\n👎 - вопрос не понравился';
+    bot.once('message', async (questionMsg) => {
+        const question = questionMsg.text;
         bot.sendMessage(chatId, "Отправьте изображение для вопроса:");
         bot.once('photo', async (photoMsg) => {
             const photoFileId = photoMsg.photo[photoMsg.photo.length - 1].file_id; // Берем ID изображения
             bot.sendMessage(chatId, "Введите варианты ответов через запятую:");
-            bot.once('message', (optionsMsg) => {
+            bot.once('message', async (optionsMsg) => {
                 const options = optionsMsg.text.split(',').map(option => option.trim());
                 bot.sendMessage(chatId, "Введите правильный ответ:");
-                bot.once('message', (correctAnswerMsg) => {
+                bot.once('message', async (correctAnswerMsg) => {
                     const correctAnswer = correctAnswerMsg.text.trim();
                     bot.sendMessage(chatId, "Введите объяснение правильного ответа:");
                     bot.once('message', async (explanationMsg) => {
                         const explanation = explanationMsg.text;
-                        const uniqueId = uuidv4(); // Генерируем уникальный ID для вопроса
-
-                        // Сохраняем вопрос в Firestore
-                        const questionData = {
-                            id: uniqueId,
-                            question,
-                            options,
-                            correctAnswer,
-                            explanation,
-                            image: photoFileId,
-                            chatId: chatId.toString() // Преобразуем ID чата в строку
-                        };
-
                         try {
-                            await db.collection('questions').doc(uniqueId).set(questionData);
+                            const questionId = await dbManager.addNewQuestion({
+                                question,
+                                options,
+                                correctAnswer,
+                                explanation,
+                                image: photoFileId,
+                                chatId: chatId.toString()
+                            });
                             bot.sendMessage(chatId, "Новый вопрос успешно добавлен!", adminKeyboard);
                         } catch (error) {
-                            console.error("Ошибка при добавлении вопроса в Firestore:", error);
                             bot.sendMessage(chatId, "Произошла ошибка при добавлении вопроса.");
                         }
                     });
@@ -177,22 +192,20 @@ async function addNewQuestion(chatId) {
             });
         });
     });
-}
+};
 
-// Функция для отправки вопроса в канал
+// Отправка вопроса в канал
 async function sendQuestionToChannel(chatId) {
     try {
-        const questionsSnapshot = await db.collection('questions').get();
-        if (questionsSnapshot.empty) {
+        const questions = await dbManager.getAllQuestions();
+        if (questions.length === 0) {
             bot.sendMessage(chatId, "Нет доступных вопросов.", adminKeyboard);
             return;
         }
 
         let message = "Доступные вопросы:\n";
-        const questions = [];
-        questionsSnapshot.forEach(doc => {
-            questions.push({ id: doc.id, ...doc.data() });
-            message += `${questions.length}. ${doc.data().question}\n`;
+        questions.forEach((question, index) => {
+            message += `${index + 1}. ${question.question}\n`;
         });
 
         bot.sendMessage(chatId, message + "\nВыберите номер вопроса для отправки:", adminKeyboard);
@@ -212,19 +225,17 @@ async function sendQuestionToChannel(chatId) {
         bot.sendMessage(chatId, "Произошла ошибка при загрузке вопросов.");
     }
 }
-
-// Функция для показа всех вопросов
+// Показ всех вопросов
 async function showAllQuestions(chatId) {
     try {
-        const questionsSnapshot = await db.collection('questions').get();
-        if (questionsSnapshot.empty) {
+        const questions = await dbManager.getAllQuestions();
+        if (questions.length === 0) {
             bot.sendMessage(chatId, "Нет доступных вопросов.", adminKeyboard);
             return;
         }
 
         let message = "Список вопросов:\n";
-        questionsSnapshot.forEach((doc, index) => {
-            const question = doc.data();
+        questions.forEach((question, index) => {
             message += `${index + 1}. ${question.question}\n`;
         });
 
@@ -232,24 +243,20 @@ async function showAllQuestions(chatId) {
     } catch (error) {
         console.error("Ошибка при получении вопросов из Firestore:", error);
         bot.sendMessage(chatId, "Произошла ошибка при загрузке вопросов.");
-
     }
 }
-
-// Функция для редактирования вопроса
+// Редактирование вопроса
 async function editQuestion(chatId) {
     try {
-        const questionsSnapshot = await db.collection('questions').get();
-        if (questionsSnapshot.empty) {
+        const questions = await dbManager.getAllQuestions();
+        if (questions.length === 0) {
             bot.sendMessage(chatId, "Нет доступных вопросов для редактирования.", adminKeyboard);
             return;
         }
 
         let message = "Доступные вопросы для редактирования:\n";
-        const questions = [];
-        questionsSnapshot.forEach(doc => {
-            questions.push({ id: doc.id, ...doc.data() });
-            message += `${questions.length}. ${doc.data().question}\n`;
+        questions.forEach((question, index) => {
+            message += `${index + 1}. ${question.question}\n`;
         });
 
         bot.sendMessage(chatId, message + "\nВыберите номер вопроса для редактирования:", adminKeyboard);
@@ -258,7 +265,6 @@ async function editQuestion(chatId) {
             if (index >= 0 && index < questions.length) {
                 const selectedQuestion = questions[index];
                 const questionId = selectedQuestion.id;
-
                 bot.sendMessage(chatId, `Вы выбрали вопрос: "${selectedQuestion.question}". Что вы хотите изменить?`, {
                     reply_markup: {
                         keyboard: [
@@ -272,36 +278,34 @@ async function editQuestion(chatId) {
                         one_time_keyboard: true
                     }
                 });
-
                 bot.once('message', async (editMsg) => {
                     const editAction = editMsg.text;
-
                     if (editAction === "Текст вопроса") {
                         bot.sendMessage(chatId, "Введите новый текст вопроса:");
                         bot.once('message', async (newQuestionMsg) => {
                             const newQuestionText = newQuestionMsg.text;
-                            await db.collection('questions').doc(questionId).update({ question: newQuestionText });
+                            await dbManager.updateQuestion(questionId, { question: newQuestionText });
                             bot.sendMessage(chatId, "Текст вопроса успешно обновлен!", adminKeyboard);
                         });
                     } else if (editAction === "Варианты ответов") {
                         bot.sendMessage(chatId, "Введите новые варианты ответов через запятую:");
                         bot.once('message', async (newOptionsMsg) => {
                             const newOptions = newOptionsMsg.text.split(',').map(option => option.trim());
-                            await db.collection('questions').doc(questionId).update({ options: newOptions });
+                            await dbManager.updateQuestion(questionId, { options: newOptions });
                             bot.sendMessage(chatId, "Варианты ответов успешно обновлены!", adminKeyboard);
                         });
                     } else if (editAction === "Правильный ответ") {
                         bot.sendMessage(chatId, "Введите новый правильный ответ:");
                         bot.once('message', async (newCorrectAnswerMsg) => {
                             const newCorrectAnswer = newCorrectAnswerMsg.text.trim();
-                            await db.collection('questions').doc(questionId).update({ correctAnswer: newCorrectAnswer });
+                            await dbManager.updateQuestion(questionId, { correctAnswer: newCorrectAnswer });
                             bot.sendMessage(chatId, "Правильный ответ успешно обновлен!", adminKeyboard);
                         });
                     } else if (editAction === "Объяснение") {
                         bot.sendMessage(chatId, "Введите новое объяснение:");
                         bot.once('message', async (newExplanationMsg) => {
                             const newExplanation = newExplanationMsg.text;
-                            await db.collection('questions').doc(questionId).update({ explanation: newExplanation });
+                            await dbManager.updateQuestion(questionId, { explanation: newExplanation });
                             bot.sendMessage(chatId, "Объяснение успешно обновлено!", adminKeyboard);
                         });
                     } else if (editAction === "Отмена") {
@@ -319,21 +323,18 @@ async function editQuestion(chatId) {
         bot.sendMessage(chatId, "Произошла ошибка при редактировании вопроса.");
     }
 }
-
-// Функция для удаления вопроса
+// Удаление вопроса
 async function deleteQuestion(chatId) {
     try {
-        const questionsSnapshot = await db.collection('questions').get();
-        if (questionsSnapshot.empty) {
+        const questions = await dbManager.getAllQuestions();
+        if (questions.length === 0) {
             bot.sendMessage(chatId, "Нет доступных вопросов для удаления.", adminKeyboard);
             return;
         }
 
         let message = "Доступные вопросы для удаления:\n";
-        const questions = [];
-        questionsSnapshot.forEach(doc => {
-            questions.push({ id: doc.id, ...doc.data() });
-            message += `${questions.length}. ${doc.data().question}\n`;
+        questions.forEach((question, index) => {
+            message += `${index + 1}. ${question.question}\n`;
         });
 
         bot.sendMessage(chatId, message + "\nВыберите номер вопроса для удаления:", adminKeyboard);
@@ -342,8 +343,7 @@ async function deleteQuestion(chatId) {
             if (index >= 0 && index < questions.length) {
                 const selectedQuestion = questions[index];
                 const questionId = selectedQuestion.id;
-
-                await db.collection('questions').doc(questionId).delete();
+                await dbManager.deleteQuestion(questionId);
                 bot.sendMessage(chatId, "Вопрос успешно удален!", adminKeyboard);
             } else {
                 bot.sendMessage(chatId, "Неверный номер вопроса.", adminKeyboard);
