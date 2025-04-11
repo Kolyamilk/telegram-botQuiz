@@ -18,7 +18,7 @@ async function addNewQuestion(questionData) {
             ...questionData,
             correctAnswersCount: 0, // Начальное значение
             wrongAnswersCount: 0,   // Начальное значение
-            answeredBy: []
+            answeredUsers: []
         });
         return uniqueId; // Возвращаем ID созданного вопроса
     } catch (error) {
