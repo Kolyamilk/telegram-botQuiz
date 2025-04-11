@@ -2,6 +2,13 @@ const { v4: uuidv4 } = require('uuid'); // Импортируем функцию
 const { FieldValue } = require('firebase-admin/firestore'); // Импортируем FieldValue из Admin SDK
 const db = require('./firebase.config'); // Подключаем Firestore
 
+
+async function addUserToAnsweredUsers(questionId, userId) {
+    const questionRef = db.collection('questions').doc(questionId);
+    await questionRef.update({
+        answeredUsers: FieldValue.arrayUnion(userId) // Используем FieldValue напрямую
+    });
+}
 // Функция для добавления нового вопроса
 async function addNewQuestion(questionData) {
     const uniqueId = uuidv4(); // Генерируем уникальный ID для вопроса
@@ -72,5 +79,6 @@ module.exports = {
     getAllQuestions,
     updateQuestion,
     deleteQuestion,
-    incrementAnswerCount
+    incrementAnswerCount,
+    addUserToAnsweredUsers
 };

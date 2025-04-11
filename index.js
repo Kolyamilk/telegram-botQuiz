@@ -1,14 +1,11 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-
 const dbManager = require('./dbManager'); // Импортируем функции для работы с базой данных
 
 // Замените 'YOUR_TELEGRAM_BOT_TOKEN' на ваш токен
 const token = process.env.TELEGRAM_BOT_TOKEN || '7446240384:AAGXLTi_v6Q3X26eSHcLPhNOTwUNVzBrvMo';
-
 // Создаем экземпляр бота
 const bot = new TelegramBot(token, { polling: true });
-
 // Создаем постоянную клавиатуру для управления ботом
 const adminKeyboard = {
     reply_markup: {
@@ -23,45 +20,46 @@ const adminKeyboard = {
         one_time_keyboard: true // Клавиатура остается после использования
     }
 };
-
 // Функция для создания инлайн-клавиатуры
-function createInlineKeyboard(options, questionId) {
+function createInlineKeyboard(options, questionId, correctAnswerIndex = null) {
     const keyboard = [];
     for (let i = 0; i < options.length; i++) {
         const callbackData = `answer_${questionId}_${i}`; // Формируем уникальный callback_data
-        keyboard.push([{ text: options[i], callback_data: callbackData }]);
+        let buttonText = options[i];
+        // Если это правильный ответ и он уже выбран, добавляем галочку
+        if (correctAnswerIndex !== null && i === correctAnswerIndex) {
+            buttonText += " ✅"; // Зелёная галочка
+        }
+        keyboard.push([{ text: buttonText, callback_data: callbackData }]);
     }
     return { reply_markup: { inline_keyboard: keyboard } };
 }
-
 // Обновление сообщения с вопросом после ответа
-async function updateQuestionMessage(chatId, messageId, questionId) {
-    try {
-        const questions = await dbManager.getAllQuestions();
-        const question = questions.find(q => q.id === questionId);
-        if (!question) {
-            console.error("Вопрос не найден в базе данных.");
-            return;
-        }
+// async function updateQuestionMessage(chatId, messageId, questionId, correctAnswerIndex) {
+//     try {
+//         const questions = await dbManager.getAllQuestions();
+//         const question = questions.find(q => q.id === questionId);
+//         if (!question) {
+//             console.error("Вопрос не найден в базе данных.");
+//             return;
+//         }
+//         const totalAnswers = (question.correctAnswersCount || 0) + (question.wrongAnswersCount || 0);
+//         const correctPercentage = totalAnswers > 0 ? Math.round((question.correctAnswersCount / totalAnswers) * 100) : 0;
 
-        const totalAnswers = (question.correctAnswersCount || 0) + (question.wrongAnswersCount || 0);
-        const correctPercentage = totalAnswers > 0 ? Math.round((question.correctAnswersCount / totalAnswers) * 100) : 0;
-
-        const messageText = `${question.question}
-📊 Статистика:
-Правильных ответов: ${question.correctAnswersCount || 0} (${correctPercentage}%)`;
-
-        // Редактируем сообщение
-        await bot.editMessageCaption(messageText, {
-            chat_id: chatId,
-            message_id: messageId,
-            reply_markup: createInlineKeyboard(question.options, question.id).reply_markup
-        });
-    } catch (error) {
-        console.error("Ошибка при обновлении текста вопроса:", error);
-    }
-}
-
+//         const messageText = `${question.question}
+// 📊 Статистика:
+// Всего ответов: ${totalAnswers} 
+// Правильно ответило: ${question.correctAnswersCount || 0} (${correctPercentage}%)`;
+//         // Редактируем сообщение
+//         await bot.editMessageCaption(messageText, {
+//             chat_id: chatId,
+//             message_id: messageId,
+//             reply_markup: createInlineKeyboard(question.options, question.id, correctAnswerIndex).reply_markup
+//         });
+//     } catch (error) {
+//         console.error("Ошибка при обновлении текста вопроса:", error);
+//     }
+// }
 // Отправка вопроса в канал
 async function sendMessageWithKeyboard(chatId, questionId) {
     try {
@@ -71,16 +69,13 @@ async function sendMessageWithKeyboard(chatId, questionId) {
             console.error("Вопрос не найден в базе данных.");
             return;
         }
-
         const totalAnswers = (question.correctAnswersCount || 0) + (question.wrongAnswersCount || 0);
         const correctPercentage = totalAnswers > 0 ? Math.round((question.correctAnswersCount / totalAnswers) * 100) : 0;
-
         // Отправляем изображение с текстом вопроса и инлайн-клавиатурой
         const sentMessage = await bot.sendPhoto(chatId, question.image, {
             caption: question.question,
             reply_markup: createInlineKeyboard(question.options, question.id).reply_markup
         });
-
         console.log("Фото и варианты ответов успешно отправлены.");
     } catch (error) {
         console.error("Ошибка в sendMessageWithKeyboard:", error);
@@ -100,6 +95,7 @@ bot.on('callback_query', async (callbackQuery) => {
     const data = callbackQuery.data;
     if (data.startsWith('answer_')) {
         const [_, questionId, userAnswerIndex] = data.split('_');
+        const userId = callbackQuery.from.id;
         try {
             const questions = await dbManager.getAllQuestions();
             const currentQuestion = questions.find(q => q.id === questionId);
@@ -107,17 +103,27 @@ bot.on('callback_query', async (callbackQuery) => {
                 console.error("Вопрос не найден в базе данных.");
                 return;
             }
-
+            // Проверяем, ответил ли пользователь ранее
+            if (currentQuestion.answeredUsers.includes(userId)) {
+                await bot.answerCallbackQuery({
+                    callback_query_id: callbackQuery.id,
+                    text: `Вы уже отвечали на этот вопрос. Ответ был: ✅${currentQuestion.correctAnswer}`,
+                    show_alert: true
+                });
+                return;
+            }
             const userAnswer = currentQuestion.options[parseInt(userAnswerIndex)];
             const isCorrect = userAnswer === currentQuestion.correctAnswer;
-
+            // Добавляем пользователя в список ответивших
             if (isCorrect) {
+                await dbManager.addUserToAnsweredUsers(questionId, userId);
                 await dbManager.incrementAnswerCount(questionId, true); // Увеличиваем счетчик правильных ответов
                 await bot.answerCallbackQuery({
                     callback_query_id: callbackQuery.id,
                     text: `✅ Правильно! ${currentQuestion.explanation}`,
                     show_alert: true
                 });
+
             } else {
                 await dbManager.incrementAnswerCount(questionId, false); // Увеличиваем счетчик неправильных ответов
                 await bot.answerCallbackQuery({
@@ -127,12 +133,7 @@ bot.on('callback_query', async (callbackQuery) => {
                 });
             }
 
-            // Обновляем текст вопроса с новой статистикой
-            await updateQuestionMessage(
-                callbackQuery.message.chat.id,
-                callbackQuery.message.message_id,
-                questionId
-            );
+
         } catch (error) {
             console.error("Ошибка при обработке callback query:", error);
         }
@@ -144,7 +145,6 @@ bot.on('callback_query', async (callbackQuery) => {
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
-
     if (text === "Добавить новый вопрос") {
         addNewQuestion(chatId);
     } else if (text === "Отправить вопрос в канал") {
@@ -193,7 +193,6 @@ async function addNewQuestion(chatId) {
         });
     });
 };
-
 // Отправка вопроса в канал
 async function sendQuestionToChannel(chatId) {
     try {
@@ -202,12 +201,10 @@ async function sendQuestionToChannel(chatId) {
             bot.sendMessage(chatId, "Нет доступных вопросов.", adminKeyboard);
             return;
         }
-
         let message = "Доступные вопросы:\n";
         questions.forEach((question, index) => {
             message += `${index + 1}. ${question.question}\n`;
         });
-
         bot.sendMessage(chatId, message + "\nВыберите номер вопроса для отправки:", adminKeyboard);
         bot.once('message', async (indexMsg) => {
             const index = parseInt(indexMsg.text) - 1;
@@ -233,12 +230,10 @@ async function showAllQuestions(chatId) {
             bot.sendMessage(chatId, "Нет доступных вопросов.", adminKeyboard);
             return;
         }
-
         let message = "Список вопросов:\n";
         questions.forEach((question, index) => {
             message += `${index + 1}. ${question.question}\n`;
         });
-
         bot.sendMessage(chatId, message, adminKeyboard);
     } catch (error) {
         console.error("Ошибка при получении вопросов из Firestore:", error);
@@ -253,12 +248,10 @@ async function editQuestion(chatId) {
             bot.sendMessage(chatId, "Нет доступных вопросов для редактирования.", adminKeyboard);
             return;
         }
-
         let message = "Доступные вопросы для редактирования:\n";
         questions.forEach((question, index) => {
             message += `${index + 1}. ${question.question}\n`;
         });
-
         bot.sendMessage(chatId, message + "\nВыберите номер вопроса для редактирования:", adminKeyboard);
         bot.once('message', async (indexMsg) => {
             const index = parseInt(indexMsg.text) - 1;
