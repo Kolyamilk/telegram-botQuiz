@@ -44,3 +44,7 @@ Telegram Quiz Bot — это уникальный бот, который я ра
    ```bash
    git clone https://github.com/your-repo/telegram-quiz-bot.git
    cd telegram-quiz-bot
+   npm i
+   node index.js
+2. создание файла .env (в которым все основные данные FIREBASE_SERVICE_ACCOUNT_KEY и токены бота)
+   
