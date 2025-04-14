@@ -6,6 +6,8 @@ const dbManager = require('./dbManager'); // Импортируем функци
 const token = process.env.TELEGRAM_BOT_TOKEN || '7446240384:AAGXLTi_v6Q3X26eSHcLPhNOTwUNVzBrvMo';
 // Создаем экземпляр бота
 const bot = new TelegramBot(token, { polling: true });
+const ADMIN_ID = 1902147359
+
 // Создаем постоянную клавиатуру для управления ботом
 const adminKeyboard = {
     reply_markup: {
@@ -84,11 +86,18 @@ async function sendMessageWithKeyboard(chatId, questionId) {
 // Обработка команды /start
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
-    try {
-        await bot.sendMessage(chatId, "Привет! Я готов к работе. Выберите действие:", adminKeyboard);
-    } catch (error) {
-        console.error("Ошибка при отправке стартового сообщения:", error);
+    const userId = msg.from.id;
+    if (userId === ADMIN_ID) {
+        try {
+            await bot.sendMessage(chatId, "Привет! Я готов к работе. Выберите действие:", adminKeyboard);
+        } catch (error) {
+            console.error("Ошибка при отправке стартового сообщения:", error);
+        }
+
+    } else {
+        await bot.sendMessage(chatId, "Этот бот работает только с администратором канала", adminKeyboard);
     }
+
 });
 // Обработка callback-запросов
 bot.on('callback_query', async (callbackQuery) => {
@@ -143,18 +152,23 @@ bot.on('callback_query', async (callbackQuery) => {
 });
 // Обработка текстовых сообщений от администратора
 bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text;
-    if (text === "Добавить новый вопрос") {
-        addNewQuestion(chatId);
-    } else if (text === "Отправить вопрос в канал") {
-        sendQuestionToChannel(chatId);
-    } else if (text === "Показать все вопросы") {
-        showAllQuestions(chatId);
-    } else if (text === "Редактировать вопрос") {
-        editQuestion(chatId);
-    } else if (text === "Удалить вопрос") {
-        deleteQuestion(chatId);
+    const userId = msg.from.id
+    if (userId === ADMIN_ID) {
+        const chatId = msg.chat.id;
+        const text = msg.text;
+        if (text === "Добавить новый вопрос") {
+            addNewQuestion(chatId);
+        } else if (text === "Отправить вопрос в канал") {
+            sendQuestionToChannel(chatId);
+        } else if (text === "Показать все вопросы") {
+            showAllQuestions(chatId);
+        } else if (text === "Редактировать вопрос") {
+            editQuestion(chatId);
+        } else if (text === "Удалить вопрос") {
+            deleteQuestion(chatId);
+        }
+    } else {
+        return
     }
 });
 // Добавление нового вопроса
