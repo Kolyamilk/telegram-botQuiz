@@ -8,6 +8,30 @@ const token = process.env.TELEGRAM_BOT_TOKEN || '7446240384:AAGXLTi_v6Q3X26eSHcL
 const bot = new TelegramBot(token, { polling: true });
 const ADMIN_ID = 1902147359
 
+
+//Авто реакция от Бота
+const GROUP_CHAT_ID = '1902147359'; // Замените на реальный ID вашей группы
+
+// Обработчик новых сообщений
+bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const messageId = msg.message_id;
+
+    // Проверяем, что сообщение пришло из нужной группы
+    if (chatId == GROUP_CHAT_ID) {
+        try {
+            // Ставим реакцию "👍" на новое сообщение
+            await bot.setMessageReaction(chatId, messageId, {
+                reaction: ['👍']
+            });
+            console.log(`Реакция "👍" успешно поставлена на сообщение ${messageId}`);
+        } catch (error) {
+            console.error("Ошибка при установке реакции:", error);
+        }
+    }
+});
+
+
 // Создаем постоянную клавиатуру для управления ботом
 const adminKeyboard = {
     reply_markup: {
@@ -22,6 +46,7 @@ const adminKeyboard = {
         one_time_keyboard: true // Клавиатура остается после использования
     }
 };
+
 // Функция для создания инлайн-клавиатуры
 function createInlineKeyboard(options, questionId, correctAnswerIndex = null) {
     const keyboard = [];
