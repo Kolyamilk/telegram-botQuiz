@@ -8,11 +8,7 @@ const token = process.env.TELEGRAM_BOT_TOKEN || '7446240384:AAGXLTi_v6Q3X26eSHcL
 const bot = new TelegramBot(token, { polling: true });
 const ADMIN_ID = 1902147359
 
-
-//Авто реакция от Бота
-// ID группы, куда пересылаются сообщения из канала
-const GROUP_CHAT_ID = '-1002651603862'; // Замените на реальный ID вашей группы
-
+// Создаем постоянную клавиатуру для управления ботом
 const adminKeyboard = {
     reply_markup: {
         keyboard: [
@@ -20,65 +16,12 @@ const adminKeyboard = {
             ["Отправить вопрос в канал"],
             ["Показать все вопросы"],
             ["Редактировать вопрос"],
-            ["Удалить вопрос"],
-            ["Поставить реакцию"]
+            ["Удалить вопрос"]
         ],
         resize_keyboard: true, // Автоматически изменять размер клавиатуры
         one_time_keyboard: true // Клавиатура остается после использования
     }
 };
-
-// Обработка текстовых сообщений от администратора
-bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text;
-
-    if (text === "Добавить новый вопрос") {
-        addNewQuestion(chatId);
-    } else if (text === "Отправить вопрос в канал") {
-        sendQuestionToChannel(chatId);
-    } else if (text === "Показать все вопросы") {
-        showAllQuestions(chatId);
-    } else if (text === "Редактировать вопрос") {
-        editQuestion(chatId);
-    } else if (text === "Удалить вопрос") {
-        deleteQuestion(chatId);
-    } else if (text === "Поставить реакцию") {
-        bot.sendMessage(chatId, "Введите ID сообщения, на которое нужно поставить реакцию:");
-        bot.once('message', async (idMsg) => {
-            const messageId = idMsg.text; // Получаем ID сообщения как строку
-
-            try {
-                await bot.setMessageReaction(GROUP_CHAT_ID, messageId, {
-                    reaction: ['👍'] // Ставим реакцию "👍"
-                });
-                bot.sendMessage(chatId, `Реакция "👍" успешно поставлена на сообщение с ID ${messageId}.`);
-            } catch (error) {
-                console.error("Ошибка при установке реакции:", error);
-                bot.sendMessage(chatId, "Произошла ошибка при установке реакции.");
-            }
-        });
-    }
-});
-
-// Обработчик новых сообщений для автоматической реакции
-bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const messageId = msg.message_id;
-
-    // Проверяем, что сообщение пришло из нужной группы
-    if (chatId == GROUP_CHAT_ID) {
-        try {
-            // Ставим реакцию "👍" на новое сообщение
-            await bot.setMessageReaction(chatId, messageId, {
-                reaction: ['👍']
-            });
-            console.log(`Реакция "👍" успешно поставлена на сообщение ${messageId}`);
-        } catch (error) {
-            console.error("Ошибка при установке реакции:", error);
-        }
-    }
-});
 
 // Функция для создания инлайн-клавиатуры
 function createInlineKeyboard(options, questionId, correctAnswerIndex = null) {
@@ -164,6 +107,18 @@ bot.on('callback_query', async (callbackQuery) => {
         const [_, questionId, userAnswerIndex] = data.split('_');
         const userId = callbackQuery.from.id;
         try {
+            // Проверяем подписку пользователя на канал
+            const CHANNEL_ID = '-1002651603862'; // Замените на ID вашего канала
+            const memberStatus = await bot.getChatMember(CHANNEL_ID, userId);
+
+            // if (memberStatus.status !== 'member' && memberStatus.status == 'administrator') {
+            //     await bot.answerCallbackQuery({
+            //         callback_query_id: callbackQuery.id,
+            //         text: "Чтобы узнать ответ, подпишитесь на наш канал!",
+            //         show_alert: true
+            //     });
+            //     return; // Прерываем выполнение дальнейшей логики
+            // }
             const questions = await dbManager.getAllQuestions();
             const currentQuestion = questions.find(q => q.id === questionId);
             if (!currentQuestion) {
@@ -255,7 +210,7 @@ async function addNewQuestion(chatId) {
                                 image: photoFileId,
                                 chatId: chatId.toString()
                             });
-                            bot.sendMessage(chatId, `Новый вопрос успешно добавлен!${chatId}`, adminKeyboard);
+                            bot.sendMessage(chatId, "Новый вопрос успешно добавлен!", adminKeyboard);
                         } catch (error) {
                             bot.sendMessage(chatId, "Произошла ошибка при добавлении вопроса.");
                         }
