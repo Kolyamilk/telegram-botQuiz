@@ -46,19 +46,16 @@ bot.on('message', async (msg) => {
     } else if (text === "Поставить реакцию") {
         bot.sendMessage(chatId, "Введите ID сообщения, на которое нужно поставить реакцию:");
         bot.once('message', async (idMsg) => {
-            const messageId = parseInt(idMsg.text); // Получаем ID сообщения
-            if (!isNaN(messageId)) {
-                try {
-                    await bot.setMessageReaction(GROUP_CHAT_ID, messageId, {
-                        reaction: ['👍'] // Ставим реакцию "👍"
-                    });
-                    bot.sendMessage(chatId, `Реакция "👍" успешно поставлена на сообщение с ID ${messageId}.`);
-                } catch (error) {
-                    console.error("Ошибка при установке реакции:", error);
-                    bot.sendMessage(chatId, "Произошла ошибка при установке реакции.");
-                }
-            } else {
-                bot.sendMessage(chatId, "Неверный ID сообщения. Попробуйте снова.");
+            const messageId = idMsg.text; // Получаем ID сообщения как строку
+
+            try {
+                await bot.setMessageReaction(GROUP_CHAT_ID, messageId, {
+                    reaction: ['👍'] // Ставим реакцию "👍"
+                });
+                bot.sendMessage(chatId, `Реакция "👍" успешно поставлена на сообщение с ID ${messageId}.`);
+            } catch (error) {
+                console.error("Ошибка при установке реакции:", error);
+                bot.sendMessage(chatId, "Произошла ошибка при установке реакции.");
             }
         });
     }
