@@ -255,7 +255,7 @@ async function addNewQuestion(chatId) {
                                 image: photoFileId,
                                 chatId: chatId.toString()
                             });
-                            bot.sendMessage(chatId, "Новый вопрос успешно добавлен!", adminKeyboard);
+                            bot.sendMessage(chatId, `Новый вопрос успешно добавлен!${chatId}`, adminKeyboard);
                         } catch (error) {
                             bot.sendMessage(chatId, "Произошла ошибка при добавлении вопроса.");
                         }
